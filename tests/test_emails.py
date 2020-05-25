@@ -37,10 +37,10 @@ def test_collect_data_for_order_confirmation_email(order):
     assert "schema_markup" in email_context
 
 
-def test_collect_data_for_fullfillment_email(fulfilled_order):
+def test_collect_data_for_fulfillment_email(fulfilled_order):
     template = emails.CONFIRM_FULFILLMENT_TEMPLATE
     fulfillment = fulfilled_order.fulfillments.first()
-    fulfillment_data = emails.collect_data_for_fullfillment_email(
+    fulfillment_data = emails.collect_data_for_fulfillment_email(
         fulfilled_order.pk, template, fulfillment.pk
     )
     email_context = fulfillment_data["context"]
@@ -224,7 +224,47 @@ def test_send_fulfillment_emails(
 ):
     fulfillment = fulfilled_order.fulfillments.first()
     send_email(order_pk=fulfilled_order.pk, fulfillment_pk=fulfillment.pk)
-    email_data = emails.collect_data_for_fullfillment_email(
+    email_data = emails.collect_data_for_fulfillment_email(
+        fulfilled_order.pk, template, fulfillment.pk
+    )
+
+    recipients = [fulfilled_order.get_customer_email()]
+
+    expected_call_kwargs = {
+        "context": email_data["context"],
+        "from_email": site_settings.default_from_email,
+        "template_name": template,
+    }
+
+    mocked_templated_email.assert_called_once_with(
+        recipient_list=recipients, **expected_call_kwargs
+    )
+
+    # Render the email to ensure there is no error
+    email_connection = get_connection()
+    email_connection.get_email_message(to=recipients, **expected_call_kwargs)
+
+
+@pytest.mark.parametrize(
+    "send_email,template",
+    [
+        (
+            emails.send_fulfillment_confirmation,
+            emails.CONFIRM_FULFILLMENT_TEMPLATE,
+        ),  # noqa
+        (emails.send_fulfillment_update, emails.UPDATE_FULFILLMENT_TEMPLATE),
+    ],
+)
+@mock.patch("saleor.order.emails.send_templated_mail")
+def test_send_fulfillment_emails_with_tracking_number_as_url(
+    mocked_templated_email, template, send_email, fulfilled_order, site_settings
+):
+    fulfillment = fulfilled_order.fulfillments.first()
+    fulfillment.tracking_number = "https://www.example.com"
+    fulfillment.save()
+    assert fulfillment.is_tracking_number_url
+    send_email(order_pk=fulfilled_order.pk, fulfillment_pk=fulfillment.pk)
+    email_data = emails.collect_data_for_fulfillment_email(
         fulfilled_order.pk, template, fulfillment.pk
     )
 
