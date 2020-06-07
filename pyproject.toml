@@ -61,6 +61,7 @@ weasyprint = ">=48"
 oauthlib = "^3.0"
 jaeger-client = "^4.3.0"
 django-cache-url = "^3.1.2"
+django-redis = "^4.12.1"
 
 [tool.poetry.dev-dependencies]
 black = "19.10b0"

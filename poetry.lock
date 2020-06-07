@@ -615,6 +615,18 @@ requests = "*"
 
 [[package]]
 category = "main"
+description = "Full featured redis cache backend for Django."
+name = "django-redis"
+optional = false
+python-versions = ">=3.5"
+version = "4.12.1"
+
+[package.dependencies]
+Django = ">=2.2"
+redis = ">=3.0.0"
+
+[[package]]
+category = "main"
 description = "Render a particular block from a template to a string."
 name = "django-render-block"
 optional = false
@@ -2169,7 +2181,7 @@ idna = ">=2.0"
 multidict = ">=4.0"
 
 [metadata]
-content-hash = "9c70cb03ae8a5870612c863f230c14254419cd8ee65e389775c4a44302fb9f5d"
+content-hash = "2c6e1fc2fc614126653cd749b2d3dd1c4ca0e09ec69ac57471dc548bfe2b6d3b"
 python-versions = "~3.8"
 
 [metadata.files]
@@ -2425,6 +2437,10 @@ django-prices-openexchangerates = [
 django-prices-vatlayer = [
     {file = "django-prices-vatlayer-1.1.0.tar.gz", hash = "sha256:54cb240dfd2b7c5fd22498aaf6e9141e602eccb2b0672911c64dc5add3fa666e"},
     {file = "django_prices_vatlayer-1.1.0-py3-none-any.whl", hash = "sha256:de47234d46ae35d83dd35adbd83e3d26a9c90a8d184020590109bdef39474ed0"},
+]
+django-redis = [
+    {file = "django-redis-4.12.1.tar.gz", hash = "sha256:306589c7021e6468b2656edc89f62b8ba67e8d5a1c8877e2688042263daa7a63"},
+    {file = "django_redis-4.12.1-py3-none-any.whl", hash = "sha256:1133b26b75baa3664164c3f44b9d5d133d1b8de45d94d79f38d1adc5b1d502e5"},
 ]
 django-render-block = [
     {file = "django_render_block-0.6-py2.py3-none-any.whl", hash = "sha256:95c7dc9610378a10e0c4a10d8364ec7307210889afccd6a67a6aaa0fd599bd4d"},
