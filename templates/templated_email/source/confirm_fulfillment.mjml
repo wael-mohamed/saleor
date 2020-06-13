@@ -14,25 +14,37 @@
         </mj-text>
         <mj-text>
           {% blocktrans trimmed context "Fulfillment confirmation email text" %}
-            Thank you for your order. Below is the list of fulfilled products.
+          Thank you for your order. Below is the list of fulfilled products.
           {% endblocktrans %}
           {% if fulfillment.tracking_number %}
-            {% if fulfillment.is_tracking_number_url %}
-              {% blocktrans trimmed with tracking_number=fulfillment.tracking_number context "Fulfillment confirmation email text" %}
-                You can track your shipment with <a href="{{ tracking_number }}">{{ tracking_number }}</a> link.
-              {% endblocktrans %}
-            {% else %}
-              {% blocktrans trimmed with tracking_number=fulfillment.tracking_number context "Fulfillment confirmation email text" %}
-                You can track your shipment with {{ tracking_number }} code.
-              {% endblocktrans %}
-            {% endif %}
+          {% if fulfillment.is_tracking_number_url %}
+          {% blocktrans trimmed with tracking_number=fulfillment.tracking_number context "Fulfillment confirmation email text" %}
+          You can track your shipment with <a href="{{ tracking_number }}">{{ tracking_number }}</a> link.
+          {% endblocktrans %}
+          {% else %}
+          {% blocktrans trimmed with tracking_number=fulfillment.tracking_number context "Fulfillment confirmation email text" %}
+          You can track your shipment with {{ tracking_number }} code.
+          {% endblocktrans %}
+          {% endif %}
           {% endif %}
         </mj-text>
+        <mj-text font-size="16px">
+          {% trans "Bonjour!" context "Standard e-mail greeting" %}
+        </mj-text>
         <mj-text>
-          {% if digital_lines %}
-            {% blocktrans trimmed context "Fulfillment digital products email text" %}
-              You can download your digital products by clicking in download link(s).
-            {% endblocktrans %}
+          {% blocktrans trimmed context "Fulfillment confirmation email text" %}
+          Nous vous remercions de votre commande. Ci-dessous la liste des produits traités.
+          {% endblocktrans %}
+          {% if fulfillment.tracking_number %}
+          {% if fulfillment.is_tracking_number_url %}
+          {% blocktrans trimmed with tracking_number=fulfillment.tracking_number context "Fulfillment confirmation email text" %}
+          Vous pouvez suivre votre livraison avec en cliquant sur <a href="https://www.aramex.com/dz/fr/track/results?mode=0&ShipmentNumber={{ tracking_number }}">{{ tracking_number }}</a>.
+          {% endblocktrans %}
+          {% else %}
+          {% blocktrans trimmed with tracking_number=fulfillment.tracking_number context "Fulfillment confirmation email text" %}
+          Vous pouvez suivre votre livraison avec en cliquant sur <a href="https://www.aramex.com/dz/fr/track/results?mode=0&ShipmentNumber={{ tracking_number }}">{{ tracking_number }}</a>.
+          {% endblocktrans %}
+          {% endif %}
           {% endif %}
         </mj-text>
       </mj-column>

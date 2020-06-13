@@ -15,7 +15,19 @@
         </mj-text>
         <mj-text>
           {% blocktrans trimmed context "Order confirmation e-mail text" %}
-            Thank you for your order. Below is the list of ordered products. To see your payment details please visit: <a href="{{ order_details_url }}">{{ order_details_url }}</a>
+          Thank you for your order. Below is the list of ordered products. To see your payment details please visit: <a href="{{ order_details_url }}">{{ order_details_url }}</a>
+          {% endblocktrans %}
+        </mj-text>
+      </mj-column>
+    </mj-section>
+    <mj-section>
+      <mj-column>
+        <mj-text font-size="16px">
+          {% trans "Bonjour!" context "Standard e-mail greeting" %}
+        </mj-text>
+        <mj-text>
+          {% blocktrans trimmed context "Order confirmation e-mail text" %}
+          Nous vous remercions de votre commande. Ci-dessous la liste des produits commandés.
           {% endblocktrans %}
         </mj-text>
       </mj-column>
@@ -34,16 +46,16 @@
             <tr>
               <td class="address">
                 {% if order.billing_address %}
-                  {% format_address order.billing_address %}
+                {% format_address order.billing_address %}
                 {% else %}
-                  {% trans "No billing address" context "Order confirmation e-mail text" %}
+                {% trans "No billing address" context "Order confirmation e-mail text" %}
                 {% endif %}
               </td>
               <td css-class="address">
                 {% if order.shipping_address %}
-                  {% format_address order.shipping_address %}
+                {% format_address order.shipping_address %}
                 {% else %}
-                  {% trans "No shipping required" context "Order confirmation e-mail text" %}
+                {% trans "No shipping required" context "Order confirmation e-mail text" %}
                 {% endif %}
               </td>
             </tr>
