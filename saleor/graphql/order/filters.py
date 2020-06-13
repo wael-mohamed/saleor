@@ -58,6 +58,7 @@ def filter_order_search(qs, _, value):
         "user_email",
         "user__first_name",
         "user__last_name",
+        "fulfillments__tracking_number",
     ]
     qs = filter_by_query_param(qs, value, order_fields)
     return qs
