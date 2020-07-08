@@ -1,9 +1,9 @@
 import graphene
-from graphql_jwt.exceptions import PermissionDenied
 from promise import Promise
 
 from ...checkout import calculations, models
 from ...checkout.utils import get_valid_shipping_methods_for_checkout
+from ...core.exceptions import PermissionDenied
 from ...core.permissions import AccountPermissions, CheckoutPermissions
 from ...core.taxes import display_gross_prices, zero_taxed_money
 from ...plugins.manager import get_plugins_manager
@@ -34,6 +34,11 @@ class PaymentGateway(graphene.ObjectType):
         graphene.NonNull(GatewayConfigLine),
         required=True,
         description="Payment gateway client configuration.",
+    )
+    currencies = graphene.List(
+        graphene.String,
+        required=True,
+        description="Payment gateway supported currencies.",
     )
 
     class Meta:
@@ -237,8 +242,8 @@ class Checkout(CountableDjangoObjectType):
         )
 
     @staticmethod
-    def resolve_available_payment_gateways(_: models.Checkout, _info):
-        return [gtw for gtw in get_plugins_manager().list_payment_gateways()]
+    def resolve_available_payment_gateways(root: models.Checkout, _info):
+        return get_plugins_manager().list_payment_gateways(currency=root.currency)
 
     @staticmethod
     def resolve_gift_cards(root: models.Checkout, _info):
