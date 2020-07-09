@@ -34,6 +34,25 @@ ADDRESS_FIELDS = (
     "phone",
 )
 
+ORDER_FIELDS = (
+    "created",
+    "status",
+    "user_email",
+    "shipping_method_name",
+    "shipping_price_net_amount",
+    "shipping_price_gross_amount",
+    "total_net_amount",
+    "total_gross_amount",
+    "shipping_price_net_amount",
+    "shipping_price_gross_amount",
+    "discount_amount",
+    "discount_name",
+    "translated_discount_name",
+    "weight",
+    "private_metadata",
+    "metadata",
+)
+
 
 def generate_order_payload(order: "Order"):
     serializer = PayloadSerializer()
@@ -72,27 +91,9 @@ def generate_order_payload(order: "Order"):
         "tax_rate",
     )
     shipping_method_fields = ("name", "type", "currency", "price_amount")
-    order_fields = (
-        "created",
-        "status",
-        "user_email",
-        "shipping_method_name",
-        "shipping_price_net_amount",
-        "shipping_price_gross_amount",
-        "total_net_amount",
-        "total_gross_amount",
-        "shipping_price_net_amount",
-        "shipping_price_gross_amount",
-        "discount_amount",
-        "discount_name",
-        "translated_discount_name",
-        "weight",
-        "private_metadata",
-        "metadata",
-    )
     order_data = serializer.serialize(
         [order],
-        fields=order_fields,
+        fields=ORDER_FIELDS,
         additional_fields={
             "shipping_method": (lambda o: o.shipping_method, shipping_method_fields),
             "lines": (lambda o: o.lines.all(), line_fields),
@@ -175,7 +176,6 @@ def generate_product_payload(product: "Product"):
         "name",
         "description_json",
         "currency",
-        "price_amount",
         "minimal_variant_price_amount",
         "attributes",
         "updated_at",
@@ -190,7 +190,7 @@ def generate_product_payload(product: "Product"):
         "sku",
         "name",
         "currency",
-        "price_override_amount",
+        "price_amount",
         "track_inventory",
         "quantity",
         "quantity_allocated",

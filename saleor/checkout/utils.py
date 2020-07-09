@@ -710,7 +710,6 @@ def create_order(
         variant = line.variant
         if variant and variant.track_inventory:
             allocate_stock(line, checkout.get_country(), line.quantity)
-
     # Add gift cards to the order
     for gift_card in checkout.gift_cards.select_for_update():
         total_price_left = add_gift_card_to_order(order, gift_card, total_price_left)

@@ -810,12 +810,14 @@ class CheckoutComplete(BaseMutation):
         order = None
         if not txn.action_required:
             # create the order into the database
+            print("create order")
             order = create_order(
                 checkout=checkout,
                 order_data=order_data,
                 user=user,
                 redirect_url=redirect_url,
             )
+            print("order created")
 
             # remove checkout after order is successfully paid
             checkout.delete()

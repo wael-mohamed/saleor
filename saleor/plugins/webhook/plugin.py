@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Optional
 
 from ...webhook.event_types import WebhookEventType
 from ...webhook.payloads import (
@@ -31,7 +31,7 @@ class WebhookPlugin(BasePlugin):
         if not self.active:
             return previous_value
         order_data = generate_order_payload(order)
-        trigger_webhooks_for_event.delay(WebhookEventType.ORDER_CREATED, order_data)
+        trigger_webhooks_for_event(WebhookEventType.ORDER_CREATED, order_data)
 
     def order_fully_paid(self, order: "Order", previous_value: Any) -> Any:
         if not self.active:
@@ -60,7 +60,6 @@ class WebhookPlugin(BasePlugin):
     def fulfillment_created(self, fulfillment: "Fulfillment", previous_value):
         if not self.active:
             return previous_value
-
         fulfillment_data = generate_fulfillment_payload(fulfillment)
         trigger_webhooks_for_event.delay(
             WebhookEventType.FULFILLMENT_CREATED, fulfillment_data
@@ -69,7 +68,6 @@ class WebhookPlugin(BasePlugin):
     def customer_created(self, customer: "User", previous_value: Any) -> Any:
         if not self.active:
             return previous_value
-
         customer_data = generate_customer_payload(customer)
         trigger_webhooks_for_event.delay(
             WebhookEventType.CUSTOMER_CREATED, customer_data

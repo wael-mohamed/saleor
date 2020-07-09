@@ -32,7 +32,6 @@ class CheckoutQueryset(models.QuerySet):
 
     def for_display(self):
         """Annotate the queryset for display purposes.
-
         Prefetches additional data from the database to avoid the n+1 queries
         problem.
         """
@@ -166,7 +165,6 @@ class Checkout(ModelWithMetadata):
 
 class CheckoutLine(models.Model):
     """A single checkout line.
-
     Multiple lines in the same checkout can refer to the same product variant if
     their `data` field is different.
     """

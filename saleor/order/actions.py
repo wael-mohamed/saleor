@@ -33,14 +33,26 @@ def order_created(order: "Order", user: "User", from_draft: bool = False):
     events.order_created_event(order=order, user=user, from_draft=from_draft)
     manager = get_plugins_manager()
     manager.order_created(order)
+    # payment = order.get_last_payment()
+    # if payment:
+    #     if order.is_captured():
+    #         order_captured(
+    #             order=order, user=user, amount=payment.total, payment=payment
+    #         )
+    #     elif order.is_pre_authorized():
+    #         order_authorized(
+    #             order=order, user=user, amount=payment.total, payment=payment
+    #         )
+    #     if order.is_fully_paid():
+    #         handle_fully_paid_order(order=order, user=user)
 
 
-def handle_fully_paid_order(order: "Order"):
-    events.order_fully_paid_event(order=order)
+def handle_fully_paid_order(order: "Order", user: "User" = None):
+    events.order_fully_paid_event(order=order, user=user)
 
     if order.get_customer_email():
         events.email_sent_event(
-            order=order, user=None, email_type=events.OrderEventsEmails.PAYMENT
+            order=order, user=user, email_type=events.OrderEventsEmails.PAYMENT
         )
         send_payment_confirmation.delay(order.pk)
 
@@ -59,7 +71,6 @@ def handle_fully_paid_order(order: "Order"):
 @transaction.atomic
 def cancel_order(order: "Order", user: "User"):
     """Cancel order.
-
     Release allocation of unfulfilled order items.
     """
 
@@ -116,6 +127,15 @@ def order_shipping_updated(order: "Order"):
     get_plugins_manager().order_updated(order)
 
 
+def order_authorized(
+    order: "Order", user: "User", amount: "Decimal", payment: "Payment"
+):
+    events.payment_authorized_event(
+        order=order, user=user, amount=amount, payment=payment
+    )
+    get_plugins_manager().order_updated(order)
+
+
 def order_captured(order: "Order", user: "User", amount: "Decimal", payment: "Payment"):
     events.payment_captured_event(
         order=order, user=user, amount=amount, payment=payment
@@ -140,7 +160,6 @@ def cancel_fulfillment(
     fulfillment: "Fulfillment", user: "User", warehouse: "Warehouse"
 ):
     """Cancel fulfillment.
-
     Return products to corresponding stocks.
     """
     fulfillment = Fulfillment.objects.select_for_update().get(pk=fulfillment.pk)
@@ -163,7 +182,6 @@ def cancel_fulfillment(
 @transaction.atomic
 def mark_order_as_paid(order: "Order", request_user: "User"):
     """Mark order as paid.
-
     Allows to create a payment for an order without actually performing any
     payment by the gateway.
     """
@@ -204,7 +222,6 @@ def fulfill_order_line(order_line, quantity, warehouse_pk):
 
 def automatically_fulfill_digital_lines(order: "Order"):
     """Fulfill all digital lines which have enabled automatic fulfillment setting.
-
     Send confirmation email afterward.
     """
     digital_lines = order.lines.filter(
@@ -239,7 +256,6 @@ def _create_fulfillment_lines(
     fulfillment: Fulfillment, warehouse_pk: str, lines: List[Dict]
 ) -> List[FulfillmentLine]:
     """Modify stocks and allocations. Return list of unsaved FulfillmentLines.
-
     Args:
         fulfillment (Fulfillment): Fulfillment to create lines
         warehouse_pk (str): Warehouse to fulfill order.
@@ -252,14 +268,11 @@ def _create_fulfillment_lines(
                     },
                     ...
                 ]
-
     Return:
         List[FulfillmentLine]: Unsaved fulfillmet lines created for this fulfillment
             based on information form `lines`
-
     Raise:
         InsufficientStock: If system hasn't containt enough item in stock for any line.
-
     """
     fulfillment_lines = []
     for line in lines:
@@ -292,10 +305,8 @@ def create_fulfillments(
     notify_customer: bool = True,
 ) -> List[Fulfillment]:
     """Fulfill order.
-
     Function create fulfillments with lines.
     Next updates Order based on created fulfillments.
-
     Args:
         requester (User): Requester who trigger this action.
         order (Order): Order to fulfill
@@ -312,15 +323,11 @@ def create_fulfillments(
                 }
         notify_customer (bool): If `True` system send email about
             fulfillments to customer.
-
     Return:
         List[Fulfillment]: Fulfillmet with lines created for this order
             based on information form `fulfillment_lines_for_warehouses`
-
-
     Raise:
         InsufficientStock: If system hasn't containt enough item in stock for any line.
-
     """
     fulfillments: List[Fulfillment] = []
     fulfillment_lines: List[FulfillmentLine] = []

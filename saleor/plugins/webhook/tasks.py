@@ -15,6 +15,7 @@ WEBHOOK_TIMEOUT = 10
 
 @app.task
 def trigger_webhooks_for_event(event_type, data):
+    print("hi")
     permissions = {}
     required_permission = WebhookEventType.PERMISSIONS[event_type].value
     if required_permission:
@@ -33,7 +34,7 @@ def trigger_webhooks_for_event(event_type, data):
     )
 
     for webhook in webhooks:
-        send_webhook_request.delay(
+        send_webhook_request(
             webhook.pk, webhook.target_url, webhook.secret_key, event_type, data
         )
 
@@ -46,7 +47,7 @@ def trigger_webhooks_for_event(event_type, data):
 def send_webhook_request(webhook_id, target_url, secret, event_type, data):
     headers = create_webhook_headers(event_type, data, secret)
     response = requests.post(
-        target_url, data=data, headers=headers, timeout=WEBHOOK_TIMEOUT
+        target_url, json=data, headers=headers, timeout=WEBHOOK_TIMEOUT
     )
     response.raise_for_status()
     logger.debug(
