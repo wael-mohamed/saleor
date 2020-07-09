@@ -244,6 +244,15 @@ class Order(ModelWithMetadata):
             .exists()
         )
 
+    def is_captured(self):
+        return (
+            self.payments.filter(
+                is_active=True, transactions__kind=TransactionKind.CAPTURE
+            )
+            .filter(transactions__is_success=True)
+            .exists()
+        )
+
     @property
     def quantity_fulfilled(self):
         return sum([line.quantity_fulfilled for line in self])
@@ -512,10 +521,3 @@ class OrderEvent(models.Model):
 
     def __repr__(self):
         return f"{self.__class__.__name__}(type={self.type!r}, user={self.user!r})"
-
-
-class Invoice(models.Model):
-    order = models.ForeignKey(Order, null=True, on_delete=models.SET_NULL)
-    number = models.CharField(max_length=255)
-    created = models.DateTimeField(auto_now_add=True)
-    url = models.URLField(max_length=2048)

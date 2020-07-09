@@ -5,7 +5,6 @@ from django.conf import settings
 from django.core.exceptions import ObjectDoesNotExist, ValidationError
 from django.db import transaction
 from django.db.models import Prefetch
-from graphql_jwt.exceptions import PermissionDenied
 
 from ...account.error_codes import AccountErrorCode
 from ...checkout import models
@@ -24,7 +23,7 @@ from ...checkout.utils import (
     remove_promo_code_from_checkout,
 )
 from ...core import analytics
-from ...core.exceptions import InsufficientStock, ProductNotPublished
+from ...core.exceptions import InsufficientStock, PermissionDenied, ProductNotPublished
 from ...core.permissions import OrderPermissions
 from ...core.taxes import TaxError
 from ...core.utils.url import validate_storefront_url
@@ -225,6 +224,13 @@ class CheckoutCreate(ModelMutation, I18nMixin):
         user = info.context.user
         country = info.context.country.code
 
+        # set country to one from shipping address
+        shipping_address = cleaned_input.get("shipping_address")
+        if shipping_address and shipping_address.country:
+            if shipping_address.country != country:
+                country = shipping_address.country
+        cleaned_input["country"] = country
+
         # Resolve and process the lines, retrieving the variants and quantities
         lines = data.pop("lines", None)
         if lines:
@@ -267,8 +273,8 @@ class CheckoutCreate(ModelMutation, I18nMixin):
     def save(cls, info, instance: models.Checkout, cleaned_input):
         # Create the checkout object
         instance.save()
-        country = info.context.country
-        instance.set_country(country.code, commit=True)
+        country = cleaned_input["country"]
+        instance.set_country(country, commit=True)
 
         # Retrieve the lines to create
         variants = cleaned_input.get("variants")
@@ -288,6 +294,7 @@ class CheckoutCreate(ModelMutation, I18nMixin):
                         "Can't create checkout with unpublished product.",
                         code=exc.code,
                     )
+            info.context.plugins.checkout_quantity_changed(instance)
         # Save provided addresses and associate them to the checkout
         cls.save_addresses(instance, cleaned_input)
 
@@ -362,6 +369,7 @@ class CheckoutLinesAdd(BaseMutation):
                     raise ValidationError(
                         "Can't add unpublished product.", code=exc.code,
                     )
+            info.context.plugins.checkout_quantity_changed(checkout)
 
         lines = list(checkout)
 
@@ -409,6 +417,7 @@ class CheckoutLineDelete(BaseMutation):
 
         if line and line in checkout.lines.all():
             line.delete()
+            info.context.plugins.checkout_quantity_changed(checkout)
 
         lines = list(checkout)
 
@@ -508,6 +517,18 @@ class CheckoutShippingAddressUpdate(BaseMutation, I18nMixin):
         error_type_field = "checkout_errors"
 
     @classmethod
+    def process_checkout_lines(cls, lines, country) -> None:
+        variant_ids = [line.variant.id for line in lines]
+        variants = list(
+            product_models.ProductVariant.objects.filter(
+                id__in=variant_ids
+            ).prefetch_related("product__product_type")
+        )
+        quantities = [line.quantity for line in lines]
+
+        check_lines_quantity(variants, quantities, country)
+
+    @classmethod
     def perform_mutation(cls, _root, info, checkout_id, shipping_address):
         pk = from_global_id_strict_type(checkout_id, Checkout, field="checkout_id")
 
@@ -540,6 +561,17 @@ class CheckoutShippingAddressUpdate(BaseMutation, I18nMixin):
         )
 
         lines = list(checkout)
+
+        country = info.context.country.code
+        # set country to one from shipping address
+        if shipping_address and shipping_address.country:
+            if shipping_address.country != country:
+                country = shipping_address.country
+        checkout.set_country(country, commit=True)
+
+        # Resolve and process the lines, validating variants quantities
+        if lines:
+            cls.process_checkout_lines(lines, country)
 
         update_checkout_shipping_method_if_invalid(
             checkout, lines, info.context.discounts
