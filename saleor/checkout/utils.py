@@ -27,6 +27,7 @@ from ..discount.models import NotApplicable, Voucher
 from ..discount.utils import (
     add_voucher_usage_by_customer,
     decrease_voucher_usage,
+    get_discounted_lines,
     get_products_voucher_discount,
     increase_voucher_usage,
     remove_voucher_usage_by_customer,
@@ -46,29 +47,11 @@ from ..warehouse.management import allocate_stock
 from . import AddressType
 from .models import Checkout, CheckoutLine
 
-COOKIE_NAME = "checkout"
-
-
-def get_checkout_from_request(request, checkout_queryset=Checkout.objects.all()):
-    """Fetch checkout from database or return a new instance based on cookie."""
-    if request.user.is_authenticated:
-        checkout, _ = get_user_checkout(request.user, checkout_queryset)
-        user = request.user
-    else:
-        token = request.get_signed_cookie(COOKIE_NAME, default=None)
-        checkout = get_anonymous_checkout_from_token(token, checkout_queryset)
-        user = None
-    if checkout is None:
-        checkout = Checkout(user=user)
-    checkout.set_country(request.country)
-    return checkout
-
 
 def get_user_checkout(
     user: User, checkout_queryset=Checkout.objects.all(), auto_create=False
 ) -> Tuple[Optional[Checkout], bool]:
     """Return an active checkout for given user or None if no auto create.
-
     If auto create is enabled, it will retrieve an active checkout or create it
     (safer for concurrency).
     """
@@ -83,11 +66,6 @@ def get_user_checkout(
     return checkout_queryset.filter(user=user).first(), False
 
 
-def get_anonymous_checkout_from_token(token, checkout_queryset=Checkout.objects.all()):
-    """Return an open unassigned checkout with given token if any."""
-    return checkout_queryset.filter(token=token, user=None).first()
-
-
 def update_checkout_quantity(checkout):
     """Update the total quantity in checkout."""
     total_lines = checkout.lines.aggregate(total_quantity=Sum("quantity"))[
@@ -97,9 +75,6 @@ def update_checkout_quantity(checkout):
         total_lines = 0
     checkout.quantity = total_lines
     checkout.save(update_fields=["quantity"])
-
-    manager = get_plugins_manager()
-    manager.checkout_quantity_changed(checkout)
 
 
 def check_variant_in_stock(
@@ -126,7 +101,6 @@ def add_variant_to_checkout(
     checkout, variant, quantity=1, replace=False, check_quantity=True
 ):
     """Add a product variant to checkout.
-
     If `replace` is truthy then any previous quantity is discarded instead
     of added to.
     """
@@ -182,7 +156,6 @@ def _check_new_checkout_address(checkout, address, address_type):
 
 def change_billing_address_in_checkout(checkout, address):
     """Save billing address in checkout if changed.
-
     Remove previously saved address if not connected to any user.
     """
     changed, remove = _check_new_checkout_address(
@@ -197,7 +170,6 @@ def change_billing_address_in_checkout(checkout, address):
 
 def change_shipping_address_in_checkout(checkout, address):
     """Save shipping address in checkout if changed.
-
     Remove previously saved address if not connected to any user.
     """
     changed, remove = _check_new_checkout_address(
@@ -253,33 +225,12 @@ def get_prices_of_discounted_specific_product(
     discounts: Optional[Iterable[DiscountInfo]] = None,
 ) -> List[Money]:
     """Get prices of variants belonging to the discounted specific products.
-
     Specific products are products, collections and categories.
     Product must be assigned directly to the discounted category, assigning
     product to child category won't work.
     """
-    discounted_products = voucher.products.all()
-    discounted_categories = set(voucher.categories.all())
-    discounted_collections = set(voucher.collections.all())
-
     line_prices = []
-    discounted_lines = []
-    if discounted_products or discounted_collections or discounted_categories:
-        for line in lines:
-            line_product = line.variant.product
-            line_category = line.variant.product.category
-            line_collections = set(line.variant.product.collections.all())
-            if line.variant and (
-                line_product in discounted_products
-                or line_category in discounted_categories
-                or line_collections.intersection(discounted_collections)
-            ):
-                discounted_lines.append(line)
-    else:
-        # If there's no discounted products, collections or categories,
-        # it means that all products are discounted
-        discounted_lines.extend(list(lines))
-
+    discounted_lines = get_discounted_lines(lines, voucher)
     for line in discounted_lines:
         line_total = calculations.checkout_line_total(
             line=line, discounts=discounts or []
@@ -299,7 +250,6 @@ def get_voucher_discount_for_checkout(
     discounts: Optional[Iterable[DiscountInfo]] = None,
 ) -> Money:
     """Calculate discount value depending on voucher and discount types.
-
     Raise NotApplicable if voucher of given type cannot be applied.
     """
     validate_voucher_for_checkout(voucher, checkout, lines, discounts)
@@ -338,7 +288,6 @@ def recalculate_checkout_discount(
     checkout: Checkout, lines: Iterable[CheckoutLine], discounts: Iterable[DiscountInfo]
 ):
     """Recalculate `checkout.discount` based on the voucher.
-
     Will clear both voucher and discount if the discount is no longer
     applicable.
     """
@@ -384,7 +333,6 @@ def add_promo_code_to_checkout(
     discounts: Optional[Iterable[DiscountInfo]] = None,
 ):
     """Add gift card or voucher data to checkout.
-
     Raise InvalidPromoCode if promo code does not match to any voucher or gift card.
     """
     if promo_code_is_voucher(promo_code):
@@ -402,7 +350,6 @@ def add_voucher_code_to_checkout(
     discounts: Optional[Iterable[DiscountInfo]] = None,
 ):
     """Add voucher data to checkout by code.
-
     Raise InvalidPromoCode() if voucher of given type cannot be applied.
     """
     try:
@@ -429,7 +376,6 @@ def add_voucher_to_checkout(
     discounts: Optional[Iterable[DiscountInfo]] = None,
 ):
     """Add voucher data to checkout.
-
     Raise NotApplicable if voucher of given type cannot be applied.
     """
     discount = get_voucher_discount_for_checkout(voucher, checkout, lines, discounts)
@@ -547,9 +493,7 @@ def clear_shipping_method(checkout: Checkout):
 
 def _get_voucher_data_for_order(checkout: Checkout) -> dict:
     """Fetch, process and return voucher/discount data from checkout.
-
     Careful! It should be called inside a transaction.
-
     :raises NotApplicable: When the voucher is not applicable in the current checkout.
     """
     voucher = get_voucher_for_checkout(checkout, with_lock=True)
@@ -630,7 +574,6 @@ def validate_gift_cards(checkout: Checkout):
 
 def create_line_for_order(checkout_line: "CheckoutLine", discounts) -> OrderLine:
     """Create a line for the given order.
-
     :raises InsufficientStock: when there is not enough items in stock for this variant.
     """
 
@@ -682,7 +625,6 @@ def prepare_order_data(
     *, checkout: Checkout, lines: Iterable[CheckoutLine], tracking_code: str, discounts
 ) -> dict:
     """Run checks and return all the data from a given checkout to create an order.
-
     :raises NotApplicable InsufficientStock:
     """
     order_data = {}
@@ -744,13 +686,10 @@ def create_order(
     *, checkout: Checkout, order_data: dict, user: User, redirect_url: str
 ) -> Order:
     """Create an order from the checkout.
-
     Each order will get a private copy of both the billing and the shipping
     address (if shipping).
-
     If any of the addresses is new and the user is logged in the address
     will also get saved to that user's address book.
-
     Current user's language is saved in the order so we can later determine
     which language to use when sending email.
     """
@@ -801,7 +740,6 @@ def is_fully_paid(
     checkout: Checkout, lines: Iterable[CheckoutLine], discounts: Iterable[DiscountInfo]
 ):
     """Check if provided payment methods cover the checkout's total amount.
-
     Note that these payments may not be captured or charged at all.
     """
     payments = [payment for payment in checkout.payments.all() if payment.is_active]
@@ -848,3 +786,7 @@ def clean_checkout(
             "Provided payment methods can not cover the checkout's total amount",
             code=CheckoutErrorCode.CHECKOUT_NOT_FULLY_PAID.value,
         )
+
+
+def cancel_active_payments(checkout: Checkout):
+    checkout.payments.filter(is_active=True).update(is_active=False)
