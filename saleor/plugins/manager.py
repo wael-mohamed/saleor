@@ -1,5 +1,5 @@
 from decimal import Decimal
-from typing import TYPE_CHECKING, Any, Iterable, List, Optional, Union
+from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Optional, Union
 
 import opentracing
 from django.conf import settings
@@ -21,6 +21,7 @@ if TYPE_CHECKING:
     from ..product.models import Product, ProductType
     from ..account.models import Address, User
     from ..order.models import Fulfillment, OrderLine, Order
+    from ..invoice.models import Invoice
     from ..payment.interface import (
         PaymentData,
         TokenConfig,
@@ -71,7 +72,6 @@ class PluginsManager(PaymentInterface):
         **kwargs,
     ) -> Any:
         """Run method_name on plugin.
-
         Method will return value returned from plugin's
         method. If plugin doesn't have own implementation of expected method_name, it
         will return previous_value.
@@ -227,6 +227,24 @@ class PluginsManager(PaymentInterface):
         default_value = None
         return self.__run_method_on_plugins("order_created", default_value, order)
 
+    def invoice_request(
+        self, order: "Order", invoice: "Invoice", number: Optional[str]
+    ):
+        default_value = None
+        return self.__run_method_on_plugins(
+            "invoice_request", default_value, order, invoice, number
+        )
+
+    def invoice_delete(self, invoice: "Invoice"):
+        default_value = None
+        return self.__run_method_on_plugins("invoice_delete", default_value, invoice)
+
+    def invoice_sent(self, invoice: "Invoice", email: str):
+        default_value = None
+        return self.__run_method_on_plugins(
+            "invoice_sent", default_value, invoice, email
+        )
+
     def order_fully_paid(self, order: "Order"):
         default_value = None
         return self.__run_method_on_plugins("order_fully_paid", default_value, order)
@@ -309,33 +327,47 @@ class PluginsManager(PaymentInterface):
             plugins = self.plugins
         return [plugin for plugin in plugins if plugin.active]
 
-    def list_payment_plugin_names(self, active_only: bool = False) -> List[tuple]:
+    def list_payment_plugin(self, active_only: bool = False) -> Dict[str, "BasePlugin"]:
         payment_method = "process_payment"
         plugins = self.plugins
         if active_only:
             plugins = self.get_active_plugins()
-        return [
-            (plugin.PLUGIN_ID, plugin.PLUGIN_NAME)
+        return {
+            plugin.PLUGIN_ID: plugin
             for plugin in plugins
             if payment_method in type(plugin).__dict__
-        ]
+        }
 
-    def list_payment_gateways(self, active_only: bool = True) -> List[dict]:
-        payment_plugins = self.list_payment_plugin_names(active_only=active_only)
-        return [
+    def list_payment_gateways(
+        self, currency: Optional[str] = None, active_only: bool = True
+    ) -> List[dict]:
+        payment_plugins = self.list_payment_plugin(active_only=active_only)
+        # if currency is given return only gateways which support given currency
+        gateways = [
             {
                 "id": plugin_id,
-                "name": plugin_name,
-                "config": self.__get_payment_config(plugin_id),
+                "name": plugin.PLUGIN_NAME,
+                "config": self.__get_payment_config(plugin),
+                "currencies": self.__get_payment_currencies(plugin),
             }
-            for plugin_id, plugin_name in payment_plugins
+            for plugin_id, plugin in payment_plugins.items()
         ]
+        if currency:
+            return [
+                gtw for gtw in gateways if currency in gtw["currencies"]  # type: ignore
+            ]
+        return gateways
 
-    def __get_payment_config(self, gateway: str) -> List[dict]:
+    def __get_payment_currencies(self, gateway: "BasePlugin") -> List[str]:
+        """Return gateway supported currencies."""
+        method_name = "get_supported_currencies"
+        default_value: list = []
+        return self.__run_method_on_single_plugin(gateway, method_name, default_value)
+
+    def __get_payment_config(self, gateway: "BasePlugin") -> List[dict]:
         method_name = "get_payment_config"
         default_value: list = []
-        gtw = self.get_plugin(gateway)
-        return self.__run_method_on_single_plugin(gtw, method_name, default_value)
+        return self.__run_method_on_single_plugin(gateway, method_name, default_value)
 
     def __run_payment_method(
         self,

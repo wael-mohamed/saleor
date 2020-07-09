@@ -17,7 +17,6 @@ class CreditCardInfo:
 @dataclass
 class GatewayResponse:
     """Dataclass for storing gateway response.
-
     Used for unifying the representation of gateway response.
     It is required to communicate between Saleor and given payment gateway.
     """
@@ -52,7 +51,6 @@ class AddressData:
 @dataclass
 class PaymentData:
     """Dataclass for storing all payment information.
-
     Used for unifying the representation of data.
     It is required to communicate between Saleor and given payment gateway.
     """
@@ -79,13 +77,13 @@ class TokenConfig:
 @dataclass
 class GatewayConfig:
     """Dataclass for storing gateway config data.
-
     Used for unifying the representation of config data.
     It is required to communicate between Saleor and given payment gateway.
     """
 
     gateway_name: str
     auto_capture: bool
+    supported_currencies: str
     # Each gateway has different connection data so we are not able to create
     # a unified structure
     connection_params: Dict[str, Any]

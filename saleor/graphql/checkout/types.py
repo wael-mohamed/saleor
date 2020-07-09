@@ -36,6 +36,12 @@ class PaymentGateway(graphene.ObjectType):
         description="Payment gateway client configuration.",
     )
 
+    currencies = graphene.List(
+        graphene.String,
+        required=True,
+        description="Payment gateway supported currencies.",
+    )
+
     class Meta:
         description = (
             "Available payment gateway backend with configuration "
@@ -237,8 +243,8 @@ class Checkout(CountableDjangoObjectType):
         )
 
     @staticmethod
-    def resolve_available_payment_gateways(_: models.Checkout, _info):
-        return [gtw for gtw in get_plugins_manager().list_payment_gateways()]
+    def resolve_available_payment_gateways(root: models.Checkout, _info):
+        return get_plugins_manager().list_payment_gateways(currency=root.currency)
 
     @staticmethod
     def resolve_gift_cards(root: models.Checkout, _info):
