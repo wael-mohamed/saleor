@@ -27,7 +27,7 @@
         </mj-text>
         <mj-text>
           {% blocktrans trimmed context "Order confirmation e-mail text" %}
-          Nous vous remercions de votre commande. Ci-dessous la liste des produits commandés.
+          Nous vous remercions de votre commande {{order}}. Ci-dessous la liste des produits commandés.
           {% endblocktrans %}
         </mj-text>
       </mj-column>

@@ -3,7 +3,9 @@
 {% load voucher %}
 
 {% block subject %}
-  {% trans "Order details" context "Order confirmation e-mail subject" %}
+  {% blocktrans trimmed with order=fulfillment.order context "Order confirmation e-mail subject" %}
+    Order details {{ order }}
+  {% endblocktrans %}
 {% endblock %}
 
 {% block plain %}
